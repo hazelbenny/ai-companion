@@ -2,7 +2,7 @@ import { supabase } from "./supabase";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-export async function streamChat({ messages, personality, onText, onError }) {
+export async function streamChat({ messages, personality, useMemory = true, onText, onError }) {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new Error("Not signed in");
@@ -13,7 +13,7 @@ export async function streamChat({ messages, personality, onText, onError }) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ messages, personality }),
+    body: JSON.stringify({ messages, personality, use_memory: useMemory }),
   });
   if (!res.ok || !res.body) throw new Error("Server error");
 

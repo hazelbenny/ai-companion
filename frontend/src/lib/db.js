@@ -46,3 +46,44 @@ export async function saveMessage(conversationId, role, content) {
       .insert({ conversation_id: conversationId, role, content })
   );
 }
+
+export async function listMemories() {
+  const { data, error } = await supabase
+    .from("memories")
+    .select("id, content, created_at")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("Database error:", error.message);
+    return [];
+  }
+  return data;
+}
+
+export async function deleteMemory(id) {
+  check(await supabase.from("memories").delete().eq("id", id));
+}
+
+export async function deleteAllMemories() {
+  check(await supabase.from("memories").delete().not("id", "is", null));
+}
+
+export async function deleteAllConversations() {
+  // messages are removed too, via "on delete cascade"
+  check(await supabase.from("conversations").delete().not("id", "is", null));
+}
+
+export async function getMemoryEnabled() {
+  const { data } = await supabase
+    .from("user_settings")
+    .select("memory_enabled")
+    .maybeSingle();
+  return data?.memory_enabled ?? true;
+}
+
+export async function setMemoryEnabled(userId, enabled) {
+  check(
+    await supabase
+      .from("user_settings")
+      .upsert({ user_id: userId, memory_enabled: enabled })
+  );
+}

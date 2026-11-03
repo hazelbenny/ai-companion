@@ -1,6 +1,6 @@
-import { Plus, Trash2, Sparkles, X, LogOut } from "lucide-react";
+import { Plus, Trash2, Sparkles, X, LogOut, Brain } from "lucide-react";
 
-export default function Sidebar({ convos, activeId, onSelect, onNew, onDelete, open, onClose, email, onSignOut }) {
+export default function Sidebar({ convos, activeId, onSelect, onNew, onDelete, open, onClose, email, onSignOut, onOpenMemory }) {
   return (
     <>
       {open && <div className="fixed inset-0 z-20 bg-black/60 md:hidden" onClick={onClose} />}
@@ -46,7 +46,13 @@ export default function Sidebar({ convos, activeId, onSelect, onNew, onDelete, o
             </div>
           ))}
         </nav>
-
+        <div className="px-3 pb-2">
+        <button
+            onClick={onOpenMemory}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-zinc-300 transition hover:bg-white/5">
+            <Brain size={16} /> Memory & privacy
+        </button>
+        </div>
         <div className="flex items-center gap-2 border-t border-white/5 p-3">
         <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs uppercase">
             {email?.[0]}

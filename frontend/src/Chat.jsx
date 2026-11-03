@@ -4,6 +4,7 @@ import ChatWindow from "./components/ChatWindow";
 import { streamChat } from "./lib/api";
 import { supabase } from "./lib/supabase";
 import * as db from "./lib/db";
+import MemoryPanel from "./components/MemoryPanel";
 
 export default function Chat({ user }) {
   const [convos, setConvos] = useState([]);
@@ -12,9 +13,14 @@ export default function Chat({ user }) {
   const [loadError, setLoadError] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [memoryOpen, setMemoryOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    db.getMemoryEnabled().then((v) => {
+    if (!cancelled) setMemoryEnabled(v);
+    });
     (async () => {
       try {
         let list = await db.loadConversations();
@@ -84,7 +90,7 @@ export default function Chat({ user }) {
     try {
       await streamChat({
         messages: history,
-        personality,
+        personality, useMemory: memoryEnabled,
         onText: (t) => {
           reply += t;
           updateLast(id, (m) => ({ ...m, content: m.content + t }));
@@ -132,6 +138,18 @@ export default function Chat({ user }) {
     db.updateConversation(active.id, { personality: p });
   };
 
+const toggleMemory = (value) => {
+  setMemoryEnabled(value);
+  db.setMemoryEnabled(user.id, value);
+};
+
+const clearAllChats = async () => {
+  await db.deleteAllConversations();
+  const c = await db.createConversation("friend");
+  setConvos([c]);
+  setActiveId(c.id);
+};
+
   if (loading) {
     return <div className="grid h-dvh place-items-center text-zinc-500">Loading your chats...</div>;
   }
@@ -158,6 +176,10 @@ export default function Chat({ user }) {
         onClose={() => setSidebarOpen(false)}
         email={user.email}
         onSignOut={() => supabase.auth.signOut()}
+        onOpenMemory={() => {
+          setMemoryOpen(true);
+          setSidebarOpen(false);
+        }}
       />
       <ChatWindow
         convo={active}
@@ -166,6 +188,14 @@ export default function Chat({ user }) {
         onPersonality={changePersonality}
         onMenu={() => setSidebarOpen(true)}
       />
+      {memoryOpen && (
+      <MemoryPanel
+        onClose={() => setMemoryOpen(false)}
+        enabled={memoryEnabled}
+        onToggle={toggleMemory}
+        onClearChats={clearAllChats}
+      />
+    )}
     </div>
   );
 }
