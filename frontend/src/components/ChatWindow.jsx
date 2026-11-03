@@ -11,8 +11,6 @@ export default function ChatWindow({ convo, streaming, onSend, onPersonality, on
     bottomRef.current?.scrollIntoView({ behavior: "auto" });
   }, [convo.messages]);
 
-  const last = convo.messages[convo.messages.length - 1];
-
   return (
     <main className="flex min-w-0 flex-1 flex-col">
       <header className="flex items-center gap-3 border-b border-white/5 px-4 py-3">
