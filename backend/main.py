@@ -1,5 +1,7 @@
 import json
 from dotenv import load_dotenv
+from fastapi import Depends
+from auth import current_user
 
 load_dotenv()  # must run before llm.py reads the env
 
@@ -27,7 +29,7 @@ class ChatRequest(BaseModel):
     personality: str = "friend"
 
 @app.post("/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, user: dict = Depends(current_user)):
     async def event_stream():
         try:
             async for text in stream_chat(

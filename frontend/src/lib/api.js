@@ -1,9 +1,18 @@
+import { supabase } from "./supabase";
+
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export async function streamChat({ messages, personality, onText, onError }) {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Not signed in");
+
   const res = await fetch(`${API}/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({ messages, personality }),
   });
   if (!res.ok || !res.body) throw new Error("Server error");
@@ -18,7 +27,7 @@ export async function streamChat({ messages, personality, onText, onError }) {
     buffer += decoder.decode(value, { stream: true });
 
     const events = buffer.split("\n\n");
-    buffer = events.pop(); // keep any incomplete event for the next read
+    buffer = events.pop();
 
     for (const event of events) {
       if (!event.startsWith("data: ")) continue;
