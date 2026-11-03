@@ -1,4 +1,5 @@
 import os
+import math
 import asyncio
 from dotenv import load_dotenv
 
@@ -9,9 +10,11 @@ from google.genai import types, errors
 
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-# Comma-separated list in .env: first is preferred, the rest are fallbacks
 MODELS = [m.strip() for m in os.getenv("MODELS", "gemini-3.5-flash").split(",")]
 RETRYABLE = (429, 500, 503)
+
+EMBED_MODEL = os.getenv("EMBED_MODEL", "gemini-embedding-001")
+EMBED_DIM = 768  # must match vector(768) in the database
 
 
 async def stream_chat(messages: list[dict], system_prompt: str):
@@ -43,11 +46,50 @@ async def stream_chat(messages: list[dict], system_prompt: str):
                 return
             except Exception as e:
                 if started:
-                    raise  # can't retry after text was already sent
+                    raise
                 last_error = e
                 retryable = isinstance(e, errors.APIError) and e.code in RETRYABLE
                 if not retryable:
                     raise
-                await asyncio.sleep(2 ** attempt)  # wait 1s, then 2s
+                await asyncio.sleep(2**attempt)
 
     raise last_error
+
+
+async def complete_json(system_prompt: str, text: str) -> str:
+    """One-shot call that returns raw JSON text. Tries each model in turn."""
+    last_error = None
+    for model in MODELS:
+        try:
+            res = await client.aio.models.generate_content(
+                model=model,
+                contents=text,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    response_mime_type="application/json",
+                    temperature=0,
+                ),
+            )
+            return res.text
+        except Exception as e:
+            last_error = e
+    raise last_error
+
+
+def _normalize(vec: list[float]) -> list[float]:
+    # Smaller output sizes aren't unit-length, so normalize for clean cosine math
+    norm = math.sqrt(sum(x * x for x in vec)) or 1.0
+    return [x / norm for x in vec]
+
+
+async def embed(texts: list[str], query: bool = False) -> list[list[float]]:
+    """Turn texts into vectors. query=True for search queries, False for stored documents."""
+    res = await client.aio.models.embed_content(
+        model=EMBED_MODEL,
+        contents=texts,
+        config=types.EmbedContentConfig(
+            task_type="RETRIEVAL_QUERY" if query else "RETRIEVAL_DOCUMENT",
+            output_dimensionality=EMBED_DIM,
+        ),
+    )
+    return [_normalize(e.values) for e in res.embeddings]

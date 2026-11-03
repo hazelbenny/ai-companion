@@ -16,6 +16,15 @@ PERSONALITIES = {
     "motivator": "Personality: energetic and encouraging. Help the user take concrete next steps.",
 }
 
-def build_system_prompt(personality: str) -> str:
+def build_system_prompt(personality: str, memories: list[str] | None = None) -> str:
     style = PERSONALITIES.get(personality, PERSONALITIES["friend"])
-    return f"{BASE_PROMPT}\n{style}"
+    prompt = f"{BASE_PROMPT}\n{style}"
+    if memories:
+        facts = "\n".join(f"- {m}" for m in memories)
+        prompt += (
+            "\n\nThings you remember about this user from earlier conversations. "
+            "Use them naturally and only when relevant. Never list them back, never mention "
+            "a memory system, and don't bring up difficult past topics unless the user does:\n"
+            f"{facts}"
+        )
+    return prompt
