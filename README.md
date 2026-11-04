@@ -2,13 +2,8 @@
 
 Celeste is a conversational AI companion you can talk to about anything, built to feel like a thoughtful friend rather than a customer-support bot. She remembers what matters to you, adapts her personality, reads the mood of a conversation, and puts you in control of everything she knows about you.
 
-> Live demo: https://ai-companion-seven-ruby.vercel.app (hosted on free tiers, so the first message after a quiet spell can take about a minute while the backend wakes up)
-
-## Screenshots
-
-| Chat | Memory & privacy |
-|---|---|
-| ![Chat](docs/chat.png) | ![Memory dashboard](docs/memory.png) |
+**Live demo:** https://ai-companion-seven-ruby.vercel.app
+_(Hosted entirely on free tiers, so the first message after a quiet spell can take about a minute while the backend wakes up.)_
 
 ## Features
 
@@ -16,11 +11,10 @@ Celeste is a conversational AI companion you can talk to about anything, built t
 - **Five switchable personalities**: funny friend, calm listener, honest friend, intellectual, motivator
 - **Long-term semantic memory**: lasting facts are extracted from conversations, stored as vector embeddings, and retrieved by *meaning* (not keywords) when relevant
 - **Tone awareness**: a classifier reads the mood of the conversation and overrides the selected personality's humor when someone is struggling
-- **Memory & privacy dashboard**: see every memory, delete any of them, switch memory off, or delete all conversations
-- **Accounts with strict per-user isolation** enforced in the database, not just in the UI
+- **Memory and privacy dashboard**: see every memory, delete any of them, switch memory off, delete all conversations, or delete your account entirely
+- **Accounts with strict per-user isolation**, enforced in the database rather than only in the UI
 - **Voice**: speak your messages and have replies read aloud (Web Speech API)
-- **Evaluation suite** that measures tone detection, memory extraction, retrieval and personality consistency
-- Users can permanently delete their account, which removes their conversations, memories and settings from the database. Prompts already sent to the Gemini API are governed by Google's terms and can't be recalled by this app.
+- **Evaluation suite** covering tone detection, memory extraction, retrieval and personality consistency
 
 ## Architecture
 
@@ -35,9 +29,9 @@ flowchart LR
 ### What happens when you send a message
 
 1. The frontend sends the conversation and the user's Supabase JWT to the backend.
-2. The backend verifies the token with Supabase.
+2. The backend verifies the token with Supabase and applies a per-user rate limit.
 3. **In parallel**: the message is embedded and the closest stored memories are retrieved (pgvector cosine similarity), and a classifier labels the mood (`light`, `neutral`, `serious`, `distressed`).
-4. A system prompt is assembled from the personality, the relevant memories, and a mood directive, then the reply streams back token by token.
+4. A system prompt is assembled from the personality, the relevant memories and a mood directive, then the reply streams back token by token.
 5. After the response finishes, a **background task** extracts durable facts from the exchange, skips duplicates, embeds the new ones and saves them. This never slows down the reply.
 
 ## Tech stack
@@ -49,17 +43,19 @@ flowchart LR
 | LLM and embeddings | Google Gemini API (`gemini-embedding-001` at 768 dimensions) |
 | Database and auth | Supabase: Postgres, pgvector, Row-Level Security, email auth |
 | Voice | Web Speech API (recognition and synthesis) |
+| Hosting | Vercel (frontend), Render (backend), Supabase (database), all on free tiers |
 
 ## Design decisions
 
-- **Row-Level Security does the isolation.** Every table has RLS policies, and the backend calls Supabase *with the user's own token*, so it never holds a privileged `service_role` key. A bug in the API layer can't leak another user's data.
+- **Row-Level Security does the isolation.** Every table has RLS policies, and the backend calls Supabase *with the user's own token*, so it never holds a privileged service key. A bug in the API layer can't leak another user's data.
 - **Memory is selective by design.** The extraction prompt keeps durable facts (interests, projects, goals, relationships) and refuses temporary moods, small talk, and sensitive categories such as health, finances, religion, politics and precise location.
 - **Retrieval, not replay.** Only the few memories relevant to the current message are injected into the prompt, instead of the whole history.
 - **Duplicate suppression.** New facts are compared with existing ones by embedding similarity, so restating something doesn't create another row.
 - **Concurrency.** Memory lookup and tone detection run together with `asyncio.gather` to hide the extra latency.
 - **Fail-safe features.** Memory and tone are enhancements: if either fails, chat still works.
 - **Swappable LLM provider.** All model calls live in `backend/llm.py`; changing providers means rewriting that one file.
-- **Embedding task types.** Stored facts and search queries are embedded with different task types, as recommended for retrieval.
+- **Account deletion without admin keys.** A `security definer` database function deletes only the caller's own account (`auth.uid()`), and `on delete cascade` removes their conversations, messages, memories and settings.
+- **Abuse protection.** A per-user rate limit protects the shared free-tier AI quota.
 
 ## Getting started
 
@@ -99,6 +95,7 @@ python -m uvicorn main:app --reload
 | `FAST_MODELS` | Lighter models for tone detection and memory extraction |
 | `SUPABASE_URL` | Your Supabase project URL |
 | `SUPABASE_ANON_KEY` | Your Supabase anon/publishable key |
+| `ALLOWED_ORIGINS` | Comma-separated frontend URLs allowed by CORS (defaults to `http://localhost:5173`) |
 | `EVAL_EMAIL`, `EVAL_PASSWORD` | _Optional_: a throwaway account for the memory evaluation suite |
 
 ### 4. Frontend
@@ -118,9 +115,19 @@ npm run dev
 
 Open http://localhost:5173, create an account and start talking.
 
+## Deployment
+
+The live demo runs on free tiers:
+
+- **Frontend:** Vercel, with the root directory set to `frontend` and the three `VITE_` variables.
+- **Backend:** Render web service, with the root directory set to `backend`, build command `pip install -r requirements.txt` and start command `uvicorn main:app --host 0.0.0.0 --port $PORT`.
+- **Database:** Supabase.
+
+After deploying, set `ALLOWED_ORIGINS` on the backend to the frontend's URL, and set the Site URL in Supabase's authentication settings.
+
 ## Evaluations
 
-LLM features can't be verified with ordinary unit tests, so the project ships an evaluation suite. From `backend/`:
+LLM features can't be verified with ordinary unit tests, so the project includes an evaluation suite. From `backend/`:
 
 ```bash
 python -m evals.run_evals                    # all suites
@@ -132,27 +139,28 @@ python -m evals.run_evals --suite tone       # tone, extraction, recall or perso
 | `tone` | Mood classification on playful, neutral and distressed messages |
 | `extraction` | Durable facts are captured; small talk, plain questions and sensitive details are not |
 | `recall` | End to end against the real database: facts are stored, the relevant one is retrieved, unrelated queries retrieve nothing, restated facts aren't duplicated |
-| `personality` | An LLM judge checks each personality is recognisable; hard checks confirm a serious mood strips emoji and jokes even from the funny personality, and that a request to lighten the mood gets answered |
+| `personality` | An LLM judge checks each personality is recognisable; hard checks confirm a serious mood strips emoji and jokes even from the funny personality, that a request to lighten the mood gets answered, and that the companion knows her own name |
 
-The recall suite signs in as a dedicated test account (`EVAL_EMAIL` / `EVAL_PASSWORD`) and **deletes that account's memories afterwards**, so never point it at a real account.
-
-Latest results: _fill in after running_
+The recall suite signs in as a dedicated test account (`EVAL_EMAIL` and `EVAL_PASSWORD`) and **deletes that account's memories afterwards**, so never point it at a real account.
 
 **Limitations of the evaluation:** model outputs vary run to run, the judge is the same model family as the system under test (which can bias it), and the cases are a small hand-written sample, so treat it as a regression check rather than a benchmark.
 
 ## Privacy
 
 - Memory is on by default but can be switched off at any time; when off, nothing is saved or retrieved.
-- Users can view and delete individual memories, delete all memories, and delete all conversations.
+- Users can view and delete individual memories, delete all memories, delete all conversations, and permanently delete their account.
 - Data is isolated per user at the database level.
+- Deleting an account removes everything stored in the app's database. Prompts already sent to the Gemini API are governed by Google's terms and can't be recalled by this app.
 - Voice input uses the browser's speech recognition. In Chrome, audio is processed by Google's speech service.
 - On the Gemini API free tier, prompts may be used by Google to improve its products. Avoid sharing sensitive information while using a free-tier key.
 
 ## Known limitations
 
+- Free-tier hosting means cold starts: the backend sleeps after about 15 minutes of inactivity.
+- The per-user rate limit is held in memory, so it resets whenever the backend restarts.
+- Free-tier model quotas can cause slow or failed replies during busy periods; the backend retries and falls back to other models.
 - Voice input works best in Chrome. Safari needs Siri and Dictation enabled; Firefox has no speech recognition.
 - Tone detection is an LLM judgment and occasionally misclassifies.
-- Free-tier model quotas can cause slow or failed replies during busy periods; the backend retries and falls back to other models.
 - Each message makes several model calls (embedding, tone, reply, extraction), which is a cost consideration at scale.
 
 ## Roadmap
@@ -161,4 +169,4 @@ Latest results: _fill in after running_
 - Show when a reply used a memory
 - Personality-specific check-in styles after heavy moments
 - Real-time voice conversations
-- Rate limiting and CI running the evaluation suite
+- CI that runs the evaluation suite
