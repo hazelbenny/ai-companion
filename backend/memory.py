@@ -45,19 +45,24 @@ async def search_memories(token: str, text: str, k: int = 5) -> list[str]:
     return [r["content"] for r in rows if r["similarity"] >= MIN_SIMILARITY]
 
 
+async def extract_facts(user_message: str, assistant_reply: str = "") -> list[str]:
+    """Ask the LLM which durable facts the user's message contains (nothing is saved)."""
+    if len(user_message.split()) < 3:
+        return []
+    raw = await complete_json(
+        EXTRACT_PROMPT,
+        f"User message:\n{user_message}\n\nAssistant reply (context only):\n{assistant_reply}",
+    )
+    data = json.loads(raw)
+    if not isinstance(data, list):
+        return []
+    return [f.strip() for f in data if isinstance(f, str) and f.strip()][:5]
+
+
 async def extract_and_store(token: str, user_message: str, assistant_reply: str) -> None:
     """Pull durable facts out of the latest exchange and save the new ones."""
-    if len(user_message.split()) < 3:
-        return
     try:
-        raw = await complete_json(
-            EXTRACT_PROMPT,
-            f"User message:\n{user_message}\n\nAssistant reply (context only):\n{assistant_reply}",
-        )
-        data = json.loads(raw)
-        if not isinstance(data, list):
-            return
-        facts = [f.strip() for f in data if isinstance(f, str) and f.strip()][:5]
+        facts = await extract_facts(user_message, assistant_reply)
         if not facts:
             return
 
