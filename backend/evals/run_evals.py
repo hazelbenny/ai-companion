@@ -216,6 +216,14 @@ async def personality_suite() -> None:
         record("personality", "mood shift: delivers the fun thing that was asked for", ok, why)
     except Exception as e:
         record("personality", "mood shift", False, f"error: {e}")
+    
+    await asyncio.sleep(PAUSE)
+    try:
+        reply = await generate([user("what's your name?")], "friend")
+        ok, why = await judge("The reply says the assistant's name is Celeste.", reply)
+        record("personality", "knows its own name", ok, why)
+    except Exception as e:
+        record("personality", "knows its own name", False, f"error: {e}")
 
 
 # --------------------------------------------------------------------------

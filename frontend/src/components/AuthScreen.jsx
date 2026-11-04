@@ -42,7 +42,7 @@ export default function AuthScreen() {
             {mode === "signin" ? "Welcome back" : "Create your account"}
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            Your AI companion is waiting.
+            Celeste is waiting to hear from you.
           </p>
         </div>
 

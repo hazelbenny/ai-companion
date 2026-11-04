@@ -61,7 +61,7 @@ export default function ChatInput({ onSend, disabled }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={listening ? "Listening..." : "Say something..."}
+          placeholder={listening ? "Listening..." : "Message Celeste..."}
           className="max-h-40 flex-1 resize-none bg-transparent px-3 py-2 text-[15px] outline-none placeholder:text-zinc-500"
         />
         {supported && (

@@ -1,6 +1,6 @@
-# ✦ AI Companion
+# ✦ Celeste
 
-A conversational AI you can talk to about anything, built to feel like a thoughtful friend rather than a customer-support bot. It remembers what matters to you, adapts its personality, reads the mood of a conversation, and puts you in control of everything it knows about you.
+Celeste is a conversational AI companion you can talk to about anything, built to feel like a thoughtful friend rather than a customer-support bot. She remembers what matters to you, adapts her personality, reads the mood of a conversation, and puts you in control of everything she knows about you.
 
 > Live demo: _coming soon_
 

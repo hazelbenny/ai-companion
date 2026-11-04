@@ -13,7 +13,7 @@ export default function Sidebar({ convos, activeId, onSelect, onNew, onDelete, o
           <div className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500">
             <Sparkles size={16} />
           </div>
-          <span className="font-semibold tracking-tight">Companion</span>
+          <span className="font-semibold tracking-tight">Celeste</span>
           <button className="ml-auto md:hidden" onClick={onClose}><X size={18} /></button>
         </div>
 

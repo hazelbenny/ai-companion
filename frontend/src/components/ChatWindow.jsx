@@ -66,10 +66,7 @@ export default function ChatWindow({
               ✦
             </div>
 
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Hey, what's on your mind?
-            </h1>
-
+            <h1 className="text-2xl font-semibold tracking-tight">Hey, I'm Celeste. What's on your mind?</h1>
             <p className="mt-2 text-zinc-500">
               Talk about anything. Pick a personality above.
             </p>
