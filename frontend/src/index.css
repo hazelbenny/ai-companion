@@ -4,9 +4,24 @@ html, body, #root { height: 100%; }
 body {
   margin: 0;
   font-family: "Inter", system-ui, sans-serif;
-  background: #09090b;
   color: #f4f4f5;
+  background:
+    radial-gradient(900px 500px at 70% -10%, rgba(139, 92, 246, 0.12), transparent 60%),
+    radial-gradient(700px 400px at 0% 100%, rgba(217, 70, 239, 0.07), transparent 60%),
+    #09090b;
+  background-attachment: fixed;
 }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.fade-up { animation: fade-up 0.25s ease-out; }
 
 /* markdown styling for AI replies */
 .md p { margin: 0 0 0.6rem; }

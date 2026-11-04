@@ -11,6 +11,10 @@ from google.genai import types, errors
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 MODELS = [m.strip() for m in os.getenv("MODELS", "gemini-3.5-flash").split(",")]
+FAST_MODELS = [
+    m.strip()
+    for m in os.getenv("FAST_MODELS", os.getenv("MODELS", "gemini-3.5-flash")).split(",")
+]
 RETRYABLE = (429, 500, 503)
 
 EMBED_MODEL = os.getenv("EMBED_MODEL", "gemini-embedding-001")
@@ -59,7 +63,7 @@ async def stream_chat(messages: list[dict], system_prompt: str):
 async def complete_json(system_prompt: str, text: str) -> str:
     """One-shot call that returns raw JSON text. Tries each model in turn."""
     last_error = None
-    for model in MODELS:
+    for model in FAST_MODELS:
         try:
             res = await client.aio.models.generate_content(
                 model=model,
