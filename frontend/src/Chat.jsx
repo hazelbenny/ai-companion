@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
@@ -5,6 +6,7 @@ import { streamChat } from "./lib/api";
 import { supabase } from "./lib/supabase";
 import * as db from "./lib/db";
 import MemoryPanel from "./components/MemoryPanel";
+import { speak, stopSpeaking } from "./lib/voice";
 
 export default function Chat({ user }) {
   const [convos, setConvos] = useState([]);
@@ -16,25 +18,39 @@ export default function Chat({ user }) {
   const [memoryEnabled, setMemoryEnabled] = useState(true);
   const [memoryOpen, setMemoryOpen] = useState(false);
 
+  // Speech preference is stored locally on this device
+  const [autoSpeak, setAutoSpeak] = useState(
+    () => localStorage.getItem("autoSpeak") === "1"
+  );
+
   useEffect(() => {
     let cancelled = false;
+
     db.getMemoryEnabled().then((v) => {
-    if (!cancelled) setMemoryEnabled(v);
+      if (!cancelled) setMemoryEnabled(v);
     });
+
     (async () => {
       try {
         let list = await db.loadConversations();
         if (cancelled) return;
-        if (list.length === 0) list = [await db.createConversation("friend")];
+
+        if (list.length === 0) {
+          list = [await db.createConversation("friend")];
+        }
+
         if (cancelled) return;
+
         setConvos(list);
         setActiveId(list[0].id);
       } catch (e) {
         console.error(e);
         if (!cancelled) setLoadError(true);
       }
+
       if (!cancelled) setLoading(false);
     })();
+
     return () => {
       cancelled = true;
     };
@@ -54,9 +70,14 @@ export default function Chat({ user }) {
 
   const send = async (text) => {
     if (streaming || !active) return;
+
+    // Stop any previous speech when a new message is sent
+    stopSpeaking();
+
     const { id, personality } = active;
     const isFirst = active.messages.length === 0;
     const title = text.slice(0, 40);
+
     const history = [
       ...active.messages.filter((m) => !m.error),
       { role: "user", content: text },
@@ -71,6 +92,7 @@ export default function Chat({ user }) {
         { role: "assistant", content: "" },
       ],
     }));
+
     setStreaming(true);
 
     await db.saveMessage(id, "user", text);
@@ -78,19 +100,22 @@ export default function Chat({ user }) {
 
     let reply = "";
     let failed = false;
+
     const fail = () => {
       failed = true;
       updateLast(id, () => ({
         role: "assistant",
         error: true,
-        content: "Something went wrong reaching the AI. Please try again in a moment.",
+        content:
+          "Something went wrong reaching the AI. Please try again in a moment.",
       }));
     };
 
     try {
       await streamChat({
         messages: history,
-        personality, useMemory: memoryEnabled,
+        personality,
+        useMemory: memoryEnabled,
         onText: (t) => {
           reply += t;
           updateLast(id, (m) => ({ ...m, content: m.content + t }));
@@ -102,14 +127,19 @@ export default function Chat({ user }) {
     }
 
     if (!failed && reply) await db.saveMessage(id, "assistant", reply);
+
+    // Read the AI reply aloud if auto-speech is enabled
+    if (autoSpeak && !failed && reply) speak(reply);
+
     setStreaming(false);
   };
 
   const newChat = async () => {
     if (active.messages.length === 0) {
-      setSidebarOpen(false); // already on an empty chat
+      setSidebarOpen(false);
       return;
     }
+
     try {
       const c = await db.createConversation(active.personality);
       setConvos((cs) => [c, ...cs]);
@@ -122,13 +152,16 @@ export default function Chat({ user }) {
 
   const deleteChat = async (id) => {
     await db.deleteConversation(id);
+
     const rest = convos.filter((c) => c.id !== id);
+
     if (rest.length === 0) {
       const c = await db.createConversation("friend");
       setConvos([c]);
       setActiveId(c.id);
       return;
     }
+
     setConvos(rest);
     if (id === activeId) setActiveId(rest[0].id);
   };
@@ -138,21 +171,35 @@ export default function Chat({ user }) {
     db.updateConversation(active.id, { personality: p });
   };
 
-const toggleMemory = (value) => {
-  setMemoryEnabled(value);
-  db.setMemoryEnabled(user.id, value);
-};
+  const toggleMemory = (value) => {
+    setMemoryEnabled(value);
+    db.setMemoryEnabled(user.id, value);
+  };
 
-const clearAllChats = async () => {
-  await db.deleteAllConversations();
-  const c = await db.createConversation("friend");
-  setConvos([c]);
-  setActiveId(c.id);
-};
+  // Toggle automatic speech output
+  const toggleSpeak = () => {
+    const next = !autoSpeak;
+    setAutoSpeak(next);
+    localStorage.setItem("autoSpeak", next ? "1" : "0");
+
+    if (!next) stopSpeaking();
+  };
+
+  const clearAllChats = async () => {
+    await db.deleteAllConversations();
+    const c = await db.createConversation("friend");
+    setConvos([c]);
+    setActiveId(c.id);
+  };
 
   if (loading) {
-    return <div className="grid h-dvh place-items-center text-zinc-500">Loading your chats...</div>;
+    return (
+      <div className="grid h-dvh place-items-center text-zinc-500">
+        Loading your chats...
+      </div>
+    );
   }
+
   if (loadError || !active) {
     return (
       <div className="grid h-dvh place-items-center px-6 text-center text-zinc-400">
@@ -181,21 +228,25 @@ const clearAllChats = async () => {
           setSidebarOpen(false);
         }}
       />
+
       <ChatWindow
         convo={active}
         streaming={streaming}
         onSend={send}
         onPersonality={changePersonality}
         onMenu={() => setSidebarOpen(true)}
+        autoSpeak={autoSpeak}
+        onToggleSpeak={toggleSpeak}
       />
+
       {memoryOpen && (
-      <MemoryPanel
-        onClose={() => setMemoryOpen(false)}
-        enabled={memoryEnabled}
-        onToggle={toggleMemory}
-        onClearChats={clearAllChats}
-      />
-    )}
+        <MemoryPanel
+          onClose={() => setMemoryOpen(false)}
+          enabled={memoryEnabled}
+          onToggle={toggleMemory}
+          onClearChats={clearAllChats}
+        />
+      )}
     </div>
   );
 }

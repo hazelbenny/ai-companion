@@ -1,10 +1,20 @@
+
 import { useEffect, useRef } from "react";
-import { Menu } from "lucide-react";
+import { Menu, Volume2, VolumeX } from "lucide-react";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
 import { PERSONALITIES, SUGGESTIONS } from "../lib/personalities";
+import { speechOutputSupported } from "../lib/voice";
 
-export default function ChatWindow({ convo, streaming, onSend, onPersonality, onMenu }) {
+export default function ChatWindow({
+  convo,
+  streaming,
+  onSend,
+  onPersonality,
+  onMenu,
+  autoSpeak,
+  onToggleSpeak,
+}) {
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -14,7 +24,10 @@ export default function ChatWindow({ convo, streaming, onSend, onPersonality, on
   return (
     <main className="flex min-w-0 flex-1 flex-col">
       <header className="flex items-center gap-3 border-b border-white/5 px-4 py-3">
-        <button className="md:hidden" onClick={onMenu}><Menu size={20} /></button>
+        <button className="md:hidden" onClick={onMenu}>
+          <Menu size={20} />
+        </button>
+
         <div className="flex gap-2 overflow-x-auto">
           {PERSONALITIES.map((p) => (
             <button
@@ -30,6 +43,20 @@ export default function ChatWindow({ convo, streaming, onSend, onPersonality, on
             </button>
           ))}
         </div>
+
+        {speechOutputSupported && (
+          <button
+            onClick={onToggleSpeak}
+            title={autoSpeak ? "Replies are read aloud" : "Read replies aloud"}
+            className={`ml-auto shrink-0 rounded-full p-2 transition ${
+              autoSpeak
+                ? "bg-violet-500/20 text-violet-200"
+                : "text-zinc-500 hover:bg-white/5"
+            }`}
+          >
+            {autoSpeak ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+        )}
       </header>
 
       <div className="flex-1 overflow-y-auto px-4">
@@ -38,8 +65,15 @@ export default function ChatWindow({ convo, streaming, onSend, onPersonality, on
             <div className="mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-2xl">
               ✦
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight">Hey, what's on your mind?</h1>
-            <p className="mt-2 text-zinc-500">Talk about anything. Pick a personality above.</p>
+
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Hey, what's on your mind?
+            </h1>
+
+            <p className="mt-2 text-zinc-500">
+              Talk about anything. Pick a personality above.
+            </p>
+
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               {SUGGESTIONS.map((s) => (
                 <button
@@ -58,7 +92,12 @@ export default function ChatWindow({ convo, streaming, onSend, onPersonality, on
               <MessageBubble
                 key={i}
                 message={m}
-                typing={streaming && i === convo.messages.length - 1 && m.role === "assistant" && m.content === ""}
+                typing={
+                  streaming &&
+                  i === convo.messages.length - 1 &&
+                  m.role === "assistant" &&
+                  m.content === ""
+                }
               />
             ))}
             <div ref={bottomRef} />

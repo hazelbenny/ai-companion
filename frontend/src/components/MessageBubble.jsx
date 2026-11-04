@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Volume2, Square } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { speak, stopSpeaking, speechOutputSupported } from "../lib/voice";
 
 function TypingDots() {
   return (
@@ -30,12 +31,32 @@ function CopyButton({ text }) {
   };
 
   return (
-    <button
-      onClick={copy}
-      title="Copy"
-      className="mt-1 text-zinc-600 opacity-0 transition hover:text-zinc-300 group-hover:opacity-100"
-    >
+    <button onClick={copy} title="Copy" className="text-zinc-600 transition hover:text-zinc-300">
       {done ? <Check size={14} /> : <Copy size={14} />}
+    </button>
+  );
+}
+
+function SpeakButton({ text }) {
+  const [playing, setPlaying] = useState(false);
+
+  const toggle = () => {
+    if (playing) {
+      stopSpeaking();
+      setPlaying(false);
+      return;
+    }
+    setPlaying(true);
+    speak(text, () => setPlaying(false));
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      title={playing ? "Stop" : "Read aloud"}
+      className={`transition hover:text-zinc-300 ${playing ? "text-violet-400" : "text-zinc-600"}`}
+    >
+      {playing ? <Square size={14} /> : <Volume2 size={14} />}
     </button>
   );
 }
@@ -68,7 +89,12 @@ export default function MessageBubble({ message, typing }) {
             <div className="md">
               <ReactMarkdown>{message.content}</ReactMarkdown>
             </div>
-            {!message.error && message.content && <CopyButton text={message.content} />}
+            {!message.error && message.content && (
+              <div className="mt-1 flex gap-3 opacity-0 transition group-hover:opacity-100">
+                <CopyButton text={message.content} />
+                {speechOutputSupported && <SpeakButton text={message.content} />}
+              </div>
+            )}
           </>
         )}
       </div>
