@@ -1,9 +1,27 @@
+
 import { useEffect, useState } from "react";
 import { X, Trash2, Brain } from "lucide-react";
 import * as db from "../lib/db";
 
 export default function MemoryPanel({ onClose, enabled, onToggle, onClearChats }) {
   const [memories, setMemories] = useState(null); // null = still loading
+
+  const [confirming, setConfirming] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const removeAccount = async () => {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await db.deleteAccount(); // signs out; the app returns to the login screen
+    } catch (e) {
+      console.error(e);
+      setDeleteError("Couldn't delete your account. Please try again.");
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +128,47 @@ export default function MemoryPanel({ onClose, enabled, onToggle, onClearChats }
           >
             Delete all conversations
           </button>
+
+          {!confirming ? (
+            <button
+              onClick={() => setConfirming(true)}
+              className="w-full rounded-xl py-2.5 text-sm text-zinc-500 transition hover:text-red-300"
+            >
+              Delete my account
+            </button>
+          ) : (
+            <div className="space-y-2 rounded-xl border border-red-500/30 bg-red-500/5 p-3">
+              <p className="text-sm text-red-200">
+                This permanently deletes your account, conversations and memories. It can't be
+                undone. Type DELETE to confirm.
+              </p>
+              <input
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                placeholder="DELETE"
+                className="w-full rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-red-500/50"
+              />
+              {deleteError && <p className="text-xs text-red-400">{deleteError}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setConfirming(false);
+                    setTyped("");
+                  }}
+                  className="flex-1 rounded-lg border border-white/10 py-2 text-sm hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={removeAccount}
+                  disabled={typed !== "DELETE" || deleting}
+                  className="flex-1 rounded-lg bg-red-500/80 py-2 text-sm font-medium disabled:opacity-30"
+                >
+                  {deleting ? "Deleting..." : "Delete forever"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

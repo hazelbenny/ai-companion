@@ -20,6 +20,7 @@ Celeste is a conversational AI companion you can talk to about anything, built t
 - **Accounts with strict per-user isolation** enforced in the database, not just in the UI
 - **Voice**: speak your messages and have replies read aloud (Web Speech API)
 - **Evaluation suite** that measures tone detection, memory extraction, retrieval and personality consistency
+- Users can permanently delete their account, which removes their conversations, memories and settings from the database. Prompts already sent to the Gemini API are governed by Google's terms and can't be recalled by this app.
 
 ## Architecture
 

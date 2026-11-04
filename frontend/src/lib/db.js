@@ -87,3 +87,16 @@ export async function setMemoryEnabled(userId, enabled) {
       .upsert({ user_id: userId, memory_enabled: enabled })
   );
 }
+
+export async function deleteAccount() {
+  const { error } = await supabase.rpc("delete_my_account");
+  if (error) throw error;
+
+  // Remove anything left in this browser, including chats cached by early versions
+  Object.keys(localStorage)
+    .filter((k) => k.startsWith("convos"))
+    .forEach((k) => localStorage.removeItem(k));
+
+  // The server-side session is already gone with the user; just clear the local one
+  await supabase.auth.signOut({ scope: "local" });
+}
