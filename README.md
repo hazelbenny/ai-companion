@@ -2,7 +2,7 @@
 
 Celeste is a conversational AI companion you can talk to about anything, built to feel like a thoughtful friend rather than a customer-support bot. She remembers what matters to you, adapts her personality, reads the mood of a conversation, and puts you in control of everything she knows about you.
 
-> Live demo: _coming soon_
+> Live demo: https://ai-companion-seven-ruby.vercel.app (hosted on free tiers, so the first message after a quiet spell can take about a minute while the backend wakes up)
 
 ## Screenshots
 
