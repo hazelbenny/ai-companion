@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
-import { streamChat } from "./lib/api";
+import { streamChat, wakeServer } from "./lib/api";
 import { supabase } from "./lib/supabase";
 import * as db from "./lib/db";
 import MemoryPanel from "./components/MemoryPanel";
@@ -25,6 +25,8 @@ export default function Chat({ user }) {
 
   useEffect(() => {
     let cancelled = false;
+
+    wakeServer();
 
     db.getMemoryEnabled().then((v) => {
       if (!cancelled) setMemoryEnabled(v);
@@ -101,14 +103,9 @@ export default function Chat({ user }) {
     let reply = "";
     let failed = false;
 
-    const fail = () => {
+    const fail = (message = "Something went wrong reaching the AI. Please try again in a moment.") => {
       failed = true;
-      updateLast(id, () => ({
-        role: "assistant",
-        error: true,
-        content:
-          "Something went wrong reaching the AI. Please try again in a moment.",
-      }));
+      updateLast(id, () => ({ role: "assistant", error: true, content: message }));
     };
 
     try {
@@ -120,10 +117,14 @@ export default function Chat({ user }) {
           reply += t;
           updateLast(id, (m) => ({ ...m, content: m.content + t }));
         },
-        onError: fail,
+        onError: () => fail(),
       });
-    } catch {
-      fail();
+    } catch (e) {
+      fail(
+        e.message === "rate-limited"
+          ? "You've sent a lot of messages. Please try again in a little while."
+          : undefined
+      );
     }
 
     if (!failed && reply) await db.saveMessage(id, "assistant", reply);

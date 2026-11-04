@@ -1,5 +1,9 @@
+
+import os
+from ratelimit import rate_limit
 import asyncio
 import json
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -12,13 +16,28 @@ from memory import extract_and_store, search_memories
 from personalities import build_system_prompt
 from tone import detect_tone
 
+
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:5173"
+    ).split(",")
+]
+
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/health")
+async def health():
+    return {"ok": True}
 
 
 class Message(BaseModel):
@@ -32,7 +51,7 @@ class ChatRequest(BaseModel):
     use_memory: bool = True
 
 
-@app.post("/chat", dependencies=[Depends(current_user)])
+@app.post("/chat", dependencies=[Depends(rate_limit)])
 async def chat(req: ChatRequest, token: str = Depends(get_token)):
     messages = [m.model_dump() for m in req.messages]
     last_user_message = req.messages[-1].content
@@ -61,11 +80,14 @@ async def chat(req: ChatRequest, token: str = Depends(get_token)):
                 yield f"data: {json.dumps({'text': text})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
         yield "data: [DONE]\n\n"
 
     async def remember():
         if req.use_memory and reply_parts:
-            await extract_and_store(token, last_user_message, "".join(reply_parts))
+            await extract_and_store(
+                token, last_user_message, "".join(reply_parts)
+            )
 
     return StreamingResponse(
         event_stream(),
